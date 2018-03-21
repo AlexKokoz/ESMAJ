@@ -1,35 +1,35 @@
 /******************************************************************************
- *  Compilation:  javac KarpRabin.java
- *  Execution:    java KarpRabin pat txt
+ *  Compilation:  javac ShiftOr.java
+ *  Execution:    java ShiftOr pat txt
  *  Dependencies: -none-
  *
  *  Reads in two strings, the pattern and the input text, and
  *  searches for the pattern in the input text using the 
- *  Rabin-Karp algorithm.
+ *  Shift-Or algorithm.
  *  
  *  
  *
- *  % java RabinKarp atcgacgta gcatcgatcagatatcgatcgacgtagcatgcacgacag
+ *  % java ShiftOr atcgacgta gcatcgatcagatatcgatcgacgtagcatgcacgacag
  *  pattern: atcgacgta
  *  text:    gcatcgatcagatatcgatcgacgtagcatgcacgacag
  *  match:                    atcgacgta       
  *
- *  % java RabinKarp gata gcatcgatcagatatcgatcgacgtagcatgcacgacag
+ *  % java ShiftOr gata gcatcgatcagatatcgatcgacgtagcatgcacgacag
  *  pattern: gata
  *  text:    gcatcgatcagatatcgatcgacgtagcatgcacgacag 
  *  match:             gata                        
  *
- *  % java RabinKarp gctc gcatcgatcagatatcgatcgacgtagcatgcacgacag
+ *  % java ShiftOr gctc gcatcgatcagatatcgatcgacgtagcatgcacgacag
  *  pattern: gctc
  *  text:    gcatcgatcagatatcgatcgacgtagcatgcacgacag 
  *  match:                                          gctc
  *
- *  %  java RabinKarp gcatcgat gcatcgatcagatatcgatcgacgtagcatgcacgacag
+ *  %  java ShiftOr gcatcgat gcatcgatcagatatcgatcgacgtagcatgcacgacag
  *  pattern: gcatcgat
  *  text:    gcatcgatcagatatcgatcgacgtagcatgcacgacag
  *  match:   gcatcgat
  *
- *  % java RabinKarp cgacag gcatcgatcagatatcgatcgacgtagcatgcacgacag
+ *  % java ShiftOr cgacag gcatcgatcagatatcgatcgacgtagcatgcacgacag
  *  pattern: cgacag
  *  text:    gcatcgatcagatatcgatcgacgtagcatgcacgacag
  *  match:                                    cgacag  
@@ -37,32 +37,39 @@
  ******************************************************************************/
 
 /**
- *  The {@code KarpRabin} class finds the first occurrence of a pattern string
+ *  The {@code ShiftOr} class finds the first occurrence of a pattern string
  *  in a text string.
  *  <p>
- *  This implementation uses the Karp-Rabin algorithm.
+ *  This implementation uses the Shift-Or algorithm.
  *  <p>
  */
-public class KarpRabin {
-	private String pat;  // pattern
-	private int patHash; // pattern hash value
-	private int m;       // pattern length
-	private int d;       // 2^(m-1)
+public class ShiftOr {
+	private static final int WORD_SIZE = 16; // word size	
+	
+	private int m;
+	private int R;      // radix
+	private int[] S;    // positions of the characters in the pattern
+	private int lim;    // limit
 	
 	/**
      * Pre-processes the pattern string.
      *
      * @param pat the pattern string
      */
-	public KarpRabin(String pat) {
-		this.pat = pat;
-		this.m = pat.length();
+	public ShiftOr(String pat) {
+		m = pat.length();
+		R = 256;
+		S = new int[R];
 		
-		// precompute 2^(m-1) for use in removing leading digit
-		d = 1;
-		for (int i = 1; i < m; ++i)
-			d = (d << 1);
-		patHash = hash(pat, m);
+		// preprocessing
+		for (int i = 0; i < R; ++i)
+			S[i] = ~0;
+		lim = 0;
+		for(int i = 0, j = 1; i < m; ++i, j <<= 1) {
+			S[pat.charAt(i)] &= ~j;
+			lim |= j;			
+		}
+		lim = ~(lim >> 1);		
 	}
 	
 	/**
@@ -75,39 +82,15 @@ public class KarpRabin {
      */
 	public int search(String txt) {
 		int n = txt.length();
-		if (n < m) return n;
-		int txtHash = hash(txt, m);
-		
-		for (int i = 0; i <= n - m; ++i) {
-			if (patHash == txtHash && match(txt, i)) 
-				return i;
-			if (i == n - m) break;
-			txtHash = rehash(txt.charAt(i), txt.charAt(i + m), txtHash);
+		if (m > WORD_SIZE)
+			throw new IllegalArgumentException("Use pattern size <= word size.");
+		int state = ~0;
+		for(int i = 0; i < n; ++i) {
+			state = (state << 1) | S[txt.charAt(i)];
+			if (state < lim) 
+				return i - m + 1;
 		}
 		return n;
-	}
-	
-	// Compute hash value for pattern[0..m-1]
-	private int hash(String s, int m) {
-		int hash = 0;
-		for (int i = 0; i < m; ++i) {
-			hash = (hash << 1) + s.charAt(i);
-		}
-		return hash;
-	}
-	
-	// Does pattern[0..m-1] match txt[start..start + m - 1]?
-	private boolean match(String txt, int start) {
-		for (int i = 0; i < m; ++i) {
-			if (pat.charAt(i) != txt.charAt(start + i))
-				return false;
-		}
-		return true;
-	}
-	
-	// Recompute hash by removing leading digit, and adding trailing digit
-	private int rehash(char leading, char trailing, int hash) {
-		return ((hash - leading * d) << 1) + trailing;
 	}
 
 	/** 
@@ -120,8 +103,8 @@ public class KarpRabin {
 	public static void main(String[] args) {
 		String pattern = args[0];
 		String text = args[1];
-		KarpRabin kr = new KarpRabin(pattern);
-		int offset = kr.search(text);
+		ShiftOr so = new ShiftOr(pattern);
+		int offset = so.search(text);
 		System.out.println("pattern: " + pattern);
 		System.out.println("text:    " + text);
 		System.out.print("match:   ");
@@ -129,5 +112,4 @@ public class KarpRabin {
 			System.out.print(" ");
 		System.out.println(pattern);
 	}
-
 }
