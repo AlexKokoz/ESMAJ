@@ -46,7 +46,7 @@
 public class ShiftOr {
 	private static final int WORD_SIZE = 16; // word size	
 	
-	private int m;
+	private int m;      // pattern length
 	private int R;      // radix
 	private int[] S;    // positions of the characters in the pattern
 	private int lim;    // limit
